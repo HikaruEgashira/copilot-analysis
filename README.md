@@ -726,7 +726,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
     
 3. **snippets**
     
-    snippets的处理是比较复杂的，在Copilot中，首先拿到了一个snippets：
+    snippetsの処理は複雑です。Copilotでは、まずsnippetsを取得します。
     
     ```jsx
     const snippets = [
@@ -749,9 +749,9 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
       ];
     ```
     
-    在默认的场景下，`retrievalSnippets`是空的，而`neighboringTabs`在我们前面的分析中是`eager`，所以会通过`getNeighborSnippets`去拿到这个数组。
+    この場合、`retrievalSnippets`は空のままで、`neighboringTabs`は前述の分析で`eager`になっているので、`getNeighborSnippets`を通じてこの配列を取得する。
     
-    注意这里传入了`neighborDocs`，这个是在extract的入口就传过来的，对应的代码是：
+    ここで`neighborDocs`が渡されていることに注意する。これはextractの入口で渡されたもので、対応するコードは：
     
     ```jsx
     let neighborDocs = [];
@@ -765,7 +765,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
           }
     ```
     
-    在默认的情况下，这里拿到的fileType是`OpenTabs`，所以会默认通过VSCode拿到目前打开的tab中，包含同类型语言文件的所有内容(按访问时间排序)，对应的代码如下：
+    初期値の場合、ここで取得したfileTypeは`OpenTabs`です。そのため、VSCodeを経由して、現在開いているタブの中に、同じタイプの言語ファイルを含むすべての内容を取得します(アクセス時間順)。対応するコードは以下の通りです。
     
     ```jsx
     exports.OpenTabFiles = class {
@@ -797,7 +797,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
     };
     ```
     
-    接着我们来看一下`getNeighborSnippets`的实现：
+    次に`getNeighborSnippets`の実装を見てみましょう：
     
     ```jsx
     exports.getNeighborSnippets = async function (
@@ -899,14 +899,14 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
     };
     ```
     
-    在这个实现中，我们可以得到以下关键信息：
+    この実装では、次の重要な情報を得ることができます。
     
-    - neighboringSnippetTypes默认为NeighboringSnippets，所以会走到`FixedWindowSizeJaccardMatcher`的逻辑里
-    - 返回值是根据neighborDocs的内容，过滤掉过小和过大文件，经过findMatchers拿到的结果
-    - 最后过滤掉score较低的，不过threshold默认为0，所以这里应该保留了所有的内容
-    - 根据score进行排序，选取较大的4条（numberOfSnippets默认为4）
+    - neighboringSnippetTypesはデフォルトでNeighboringSnippetsに設定されているため、`FixedWindowSizeJaccardMatcher`のロジックに入ります
+    - 戻り値はneighborDocsの内容に基づいて、小さすぎるファイルと大きすぎるファイルをフィルタリングし、findMatchersを通して取得した結果です
+    - 最後に、スコアが低いものをフィルタリングしますが、thresholdはデフォルトで0なので、ここではすべてのコンテンツが保持されているはずです
+    - スコアに基づいてソートし、大きい4つを選択します（numberOfSnippetsはデフォルトで4です）
     
-    紧接着我们就来看看`FixedWindowSizeJaccardMatcher`的逻辑：
+    次に、`FixedWindowSizeJaccardMatcher`のロジックを見てみましょう。
     
     ```jsx
     class FixedWindowSizeJaccardMatcher extends i.WindowedMatcher {
@@ -936,9 +936,9 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
       }
     ```
     
-    这里的`snippetLength` 在eager的情况下默认为60，也就意味着snippet最多不超过60行。
+    ここでの`snippetLength` はeagerの場合はデフォルトで60になるので、snippetは60行を超えない。
     
-    这个类继承了`WindowedMatcher`，findMatches就在WindowedMatcher里：
+    このクラスは`WindowedMatcher`を継承しているので、findMatchesはWindowedMatcherにある：
     
     ```jsx
     async findMatches(e, t = i.SnippetSelectionOption.BestMatch, n) {
@@ -950,7 +950,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
         }
     ```
     
-    在这里第二个参数其实默认是undefined，所以默认走到BestMatch的分支：
+    ここで、第二引数はデフォルトでundefinedなので、BestMatchの分岐になります：
     
     ```jsx
     async findBestMatch(e) {
@@ -966,7 +966,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
         }
     ```
     
-    可以看到所谓BestMatch，就是取出`retrieveAllSnippets` 的第0条结果作为snippet返回。
+    BestMatchというのは、`retrieveAllSnippets` の第0条の結果をスニペットとして返すということです。
     
     ```jsx
     retrieveAllSnippets(e, t = s.Descending) {
@@ -998,17 +998,17 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
         }
     ```
     
-    这段代码的核心是根据窗口计算出不同的代码片段与当前文件的相似度，并返回排序后的片段列表。
+    このコードのコアは、ウィンドウを基準に、異なるコードスニペットと現在のファイルの類似度を計算し、ソートされたスニペットリストを返すことです。
+
+    まず、すでに計算されたコードの類似度をキャッシュするために、このスニペットが行われています。
+
+    次に、いくつかのロジックに焦点を当てます。
+
+    - tokenizeを使用して、現在のコードスニペットの各行のトークンを取得します。
+    - getWindowsDelineationsを使用して、コードを異なる小窓に分割します（ステップは1です）。
+    - 各ウィンドウのトークンと現在のファイル（referenceDoc）のトークンを使用して、類似度の計算を行います（`Jaccard`類似度）。
     
-    首先这里做了个缓存处理，用来缓存已经计算过相似度的代码；
-    
-    然后我们重点关注下这里的几个逻辑：
-    
-    - 经过tokenize获取到当前代码片段每一行的token
-    - 通过getWindowsDelineations将代码分割成不同的小窗口（步长为1）
-    - 每个窗口的token和当前文件（referenceDoc）的token做一次相似度计算（`Jaccard`相似度）
-    
-    这三个点都非常关键，我们展开来分析下：
+    これらの3つのポイントはすべて非常に重要です。私たちは、それらを分析するために展開します。
     
     1. **tokenize计算每一行的token**
         
@@ -1436,16 +1436,16 @@ prompt从代码上看比较复杂，我们整体把prefix的组成画一下做�
 
 ![image](https://files.mdnice.com/user/13429/f3748c7d-a605-41d1-bcac-9c16f5e334be.png)
 
-## 小结
+## まとめ
 
-从Copilot中，我们可以了解到值得学习的几个核心思想：
+Copilotから学ぶべきことはいくつかあります：
 
-- 对于编辑器输入的边界判断，包括太少、太多、取消等等很多场景齐全的考虑
-- 缓存思想，利用多级缓存策略保护后台，模型运算本身就是一件昂贵的事情
-- prompt的设计，不仅仅包含了上下文代码，在文件解析、编辑器打开的相关代码上还做了很多
-- 利用简单的Jaccard算法计算分词后的文本相似度，能够快速决策出当前上下文相关的snippet
-- 实验特性，在Copilot中，大量的参数、优先级、设置字段都是通过实验来控制的，有一套完整的监控上报体系，帮助Copilot去调整这些参数，以达到更好的效果
+- エディタの入力の境界判定、例えば、少なすぎる、多すぎる、キャンセルなど、さまざまなシーンの考慮が含まれています。
+- キャッシュの考え方、マルチキャッシュ戦略を使用してバックエンドを保護し、モデルの計算自体が高価なことを保護します。
+- プロンプトの設計、コードのコンテキストだけでなく、ファイルの解析やエディタのオープンに関連するコードにも多くのコードがあります。
+- 単純なJaccardアルゴリズムを使用して、トークン化されたテキストの類似度を計算し、現在のコンテキストに関連するスニペットを迅速に決定できます。
+- 実験機能、Copilotでは、多くのパラメータ、優先度、設定フィールドが実験を介して制御されます。完全な監視およびレポートシステムがあり、これらのパラメーターを調整して、より良い結果を得るのに役立ちます。
 
-Copilot的逻辑比我想象中要复杂许多，逆向分析难度就更高了。耗费了很多时间在解析工作上，本文相关的工具链和代码都已上传Github，希望能够给一些有需要的同学提供帮助：
+Copilotのロジックは想像以上に複雑で、リバースエンジニアリングの難易度も高いです。解析作業に多くの時間を費やしました。本文に関連するツールチェーンとコードはすでにGithubにアップロードされています。必要な方には役立てていただければ幸いです：
 
 [https://github.com/mengjian-github/copilot-analysis](https://github.com/mengjian-github/copilot-analysis)
