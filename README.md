@@ -595,7 +595,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
 
 1. **languageMarker和pathMarker**
     
-    languageMarker和pathMarker是最先被放进promptWishList中的，经过前面的分析，我们知道在配置中，languageMarker和pathMarker都是有默认值的，因此下面的判断分支一定会走到：
+    languageMarkerとpathMarkerは、promptWishListに最初に配置されたものです。前の分析でわかりましたが、構成では、languageMarkerとpathMarkerにはデフォルト値があります。そのため、次の分岐に入ります。
     
   ```jsx
     if (promptOpts.languageMarker !== h.NoMarker) {
@@ -627,7 +627,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
     const n = ["php", "plaintext"];
     ```
     
-    其次再看一下语言本身是否有标记语法，在这个Map中（HTML、Python、Ruby、Shell、YAML）：
+    次に言語本体に構文をマークする機能があるかどうかを調べます。このマップには（HTML、Python、Ruby、Shell、YAML）があります。：
     
     ```jsx
     const r = {
@@ -639,13 +639,13 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
     };
     ```
     
-    其余的情况就返回一行注释，类似这样：
+    それ以外の場合は、このようなコメント行を返します。：
     
     ```jsx
     // Language: ${languageId}
     ```
     
-    getPathMarker逻辑更简单些，只是一行注释，标明文件路径（暂时搞不清楚这个信息给模型有什么用，可能路径里面包含了目录结构信息和文件名帮助模型更好进行推断？）：
+    getPathMarkerロジックはもう少し簡単です。 1行のコメントのみで、ファイルパスを示します（この情報がモデルにどのように役立つかはまだわかりませんが、パスにはディレクトリ構造とファイル名が含まれている可能性があり、モデルが推論をよりよく実行できますか？）：
     
     ```jsx
     exports.getPathMarker = function (e) {
@@ -655,7 +655,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
     
 2. **localImportContext**
     
-    localImportContext的实现要复杂一点，通过上面的配置我们可以看到这个也是默认有值的，会进到下面这个分支当中：
+    localImportContextの実装はちょっと複雑なので、上記の設定を見ると、デフォルトでも値があることがわかり、下のブランチに入ります。：
     
     ```jsx
     if (promptOpts.localImportContext !== y.NoContext)
@@ -663,7 +663,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
           promptWishlist.append(newLineEnded(e), p.PromptElementKind.ImportedFile, importedFilePriority);
     ```
     
-    extractLocalImportContext是一个异步函数，让我们看一下这里面的实现：
+    extractLocalImportContextは非同期関数です。実装を見てみましょう。：
     
     ```jsx
     const reg = /^\s*import\s*(type|)\s*\{[^}]*\}\s*from\s*['"]\./gm;
@@ -718,11 +718,9 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
       }
     ```
     
-    首先我们可以关注到的是，这个函数先判断了Typescript的语言，也就意味着当前版本的Copilot，只对ts文件的import依赖做了处理。
-    
-    这个函数之所以是异步的，就是这里要拿到import语句的语法树，这个过程比较复杂，copilot是使用了wasm的方式，通过tree-sitter来解析语法树的，这个过程是异步的。
-    
-    最后，copilot提取出所有的import，并且返回了所有named import对应的export代码，也就是最终索引到了依赖文件，将用到的export都作为上下文extract出来。
+    まず、この関数はTypescriptの言語を判断して、現在のバージョンのCopilotは、tsファイルのimport依存性だけを処理します。
+    この関数が非同期である理由は、ここでimport文の構文木を取得する必要があるため、このプロセスはかなり複雑です。copilotはwasmの方法を使用して、tree-sitterを使用して構文木を解析し、このプロセスは非同期です。
+    最後に、copilotはすべてのimportを抽出して、すべてのnamed importに対応するexportコードを返します。つまり、最終的に依存ファイルを検索し、使用されるすべてのexportをコンテキストとして抽出します。
     
 3. **snippets**
     
@@ -1025,7 +1023,7 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
         }
         ```
         
-        可以看到处理tokens其实就是分词的过程，比普通单词分割多了一步，就是过滤常见的关键词，这些关键词不影响相似度的计算（比如if、for这种）。
+        トークンを処理することは、実際には単語分割のプロセスであることがわかります。ただし、通常の単語分割とは異なり、よく使用されるキーワード（if、forなど）をフィルタリングするというステップが追加されます。これらのキーワードは、類似性の計算に影響しません。
         
     2. **getWindowsDelineations分割窗口**
         
@@ -1040,11 +1038,11 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
         };
         ```
         
-        `getWindowsDelineations` 本身逻辑并不复杂，就是根据传入的windowSize返回一个二维数组，这个二维数组的每一项都是一个起始行数和终止行数，它返回的是步长为1，在文件里面windowSize长度内的所有可能区间。
+        `getWindowsDelineations` は複雑ではなく、渡されたwindowSizeに応じて2次元配列を返します。この2次元配列の各要素は、開始行数と終了行数で構成されています。この関数は、ファイル内のwindowSizeの間隔で、すべての可能な間隔を返します。
         
-        得到这些区间后，会跟当前的内容（同样windowSize）进行相似度计算，选择出相似度最高的区间内容返回，这个内容就是最终的snippet。
+        これらの間隔を取得した後、現在のコンテンツ（同じwindowSize）と類似度の計算を行い、最も高い類似度の間隔のコンテンツを選択して返します。このコンテンツは、最終的なスニペットです。
         
-        其中，获取当前内容的方法如下：
+        ここで、現在のコンテンツを取得する方法は：
         
         ```jsx
         get referenceTokens() {
@@ -1258,7 +1256,7 @@ if (h.Top === promptOpts.languageMarker && V.length > 0 && void 0 !== languageMa
   }
 ```
 
-这里其实我不太理解的一点是，pathMarker和languageMarker在这个逻辑里互斥了，在我们上面分析可以看到pathMarker的优先级比languageMarker优先级高，这里加了一个exclude，也就意味着languageMarker永远不可能出现了。
+ここで私があまり理解していないのは、pathMarkerとlanguageMarkerはこのロジックの中で相互排他的であることです。私たちが上記の分析で見ることができるように、pathMarkerの優先度はlanguageMarkerの優先度よりも高いため、ここにexcludeを追加すると、languageMarkerは常に現れないことを意味します。
 
 最后，如果是suffixPercent为0的情况下，代码到这里就直接结束了，调用fullfill方法返回最终的结果：
 
@@ -1267,9 +1265,9 @@ if (0 === promptOpts.suffixPercent || q.length <= promptOpts.fimSuffixLengthThre
     return promptWishlist.fulfill(promptOpts.maxPromptLength);
 ```
 
-当然，经过我们上面的分析suffixPercent在当前版本的默认值是15，不为0，会走到suffix的逻辑。
+さて、上記の分析を通じてsuffixPercentはデフォルトの値は15であり、0ではないため、suffixのロジックに入ります。
 
-不过我们可以先看一下fullfill的处理，suffix逻辑我们就不分析了:
+しかし、fullfillの処理を見てから、suffixのロジックは分析しません。:
 
 ```jsx
 fulfill(maxPromptLength) {
