@@ -2,35 +2,35 @@
 
 ## 背景
 
-众所周知，Github Copilot是一种基于机器学习的代码自动补全工具。它使用了来自GitHub的大量代码作为训练数据，并使用OpenAI的语言模型来生成代码。Copilot还可以学习用户的编码习惯，并根据上下文推断出正确的代码片段。
+Github Copilotは、機械学習に基づくコード補完ツールです。GitHubから大量のコードをトレーニングデータとして使用し、OpenAIの言語モデルを使用してコードを生成します。Copilotは、ユーザーのコーディング習慣を学習し、コンテキストから正しいコードスニペットを推測することができます。
 
-在实际使用中发现大部份提示还是非常好用的，能够较为准确的推测出用户意图，甚至是基于项目其他文件的上下文进行推理。比较好奇这里是怎么做到的，于是探索了这个VSCode插件的详细实现。
+実際の使用では、大部分のヒントが非常に役立つことがわかりました。ユーザーの意図を比較的正確に推測し、プロジェクトの他のファイルのコンテキストに基づいて推論することさえできます。ここがどうやってやっているのか、このVSCodeプラグインの詳細な実装を探ってみました。
 
 ## 准备工作
 
-由于Copilot并没有开源，因此我们需要做一些逆向的准备。
+Copilotがオープンソースでないため、いくつかの逆向きの準備をする必要があります。
 
-首先，找到VSCode插件的安装目录，拿到`extension.js`：
+まず、VSCodeプラグインのインストールディレクトリを見つけ、`extension.js`を取得します。
 
 ![image](https://files.mdnice.com/user/13429/8966f2a1-c7ee-457d-a233-b53d18d4f80f.png)
 
-在mac下插件目录在`~/.vscode`下，我们可以拿到一个经过压缩混淆的文件：
+macでプラグインディレクトリは`~/.vscode`の下にあります。圧縮と難読化されたファイルを取得できます：
 
 ![image](https://files.mdnice.com/user/13429/1c2b9452-87f1-45d3-8ba7-4b2fc1a69a56.png)
 
 ### 1. 分割`webpack_modules`
 
-针对整个webpack压缩混淆的js，我们首先要将不同的bundle识别出来，分割成单个文件，以便于后续的分析。
+webpackの圧縮混合されたjsに対して、まずwebpackのbundleを識別して、単一ファイルに分割して分析するために必要です。
 
-由于压缩后的代码存在很多不确定性，一开始打算尝试通过正则提取，但无论如何都有各种边界情况导致提取不正确，最简单的方法还是通过AST来提取。
+圧縮されたコードには多くの不確実性が存在するため、最初に正規表現で抽出しようとしましたが、どのような状況でも正しく抽出されませんでした。最も簡単な方法は、ASTを使用して抽出することです。
 
-首先，通过babel-parser将源码解析为AST：
+まず、babel-parserを使用してソースコードをASTに解析します。
 
 ```jsx
 const ast = parser.parse(source);
 ```
 
-然后，通过babel-traverse遍历整个AST，找到modules的变量，取出里面的值：
+そして、babel-traverseを通してASTを一回りし、modulesの変数を見つけて、中身を取り出す：
 
 ```jsx
 function parseModules() {
@@ -67,19 +67,19 @@ function parseModules() {
 
 ```
 
-最后，将处理过后的ast通过babel-generator和babel-types重新生成新的ast写入文件。
-
-这样，我们就得到了以模块id命名的独立bundle，在我的这一版中，解析出来的copilot的bundle已经非常多了，达到752个。
+最後に、処理したastをbabel-generatorとbabel-typesを使って新しいastに変換し、ファイルに書き込みます。
+これで、モジュールIDで名前を付けた独立bundleを得ることができます。
+このバージョンでは、解析されたcopilotのbundleの数はすでに多くなっており、752個に達しています。
 
 ![image](https://files.mdnice.com/user/13429/3a674c5a-0b99-4706-a5cb-b58316767cf1.png)
 
 ### 2. 识别模块依赖
 
-我们解析出来的bundle，第一层函数大概是这样：
+私たちが解析したバンドル、第一層の関数は大体こんな感じです：
 
 ![image](https://files.mdnice.com/user/13429/8ab939a1-0421-4870-ac58-76807ffe91e9.png)
 
-对于webpack来说，这几个参数是固定的，分别是`module`、`exports`、`require`，所以我们优先把这几个参数识别出来，进行作用域的替换，这样才可以看出模块间的依赖关系：
+webpackにとって、これらの引数は固定値であり、それぞれ`module`、`exports`、`require`です。したがって、まずこれらの引数を識別し、スコープを置き換える必要があります。そうでないと、モジュール間の依存関係を確認できません。
 
 ```jsx
 function clearfyParams(moduleId, moduleSource) {
@@ -115,7 +115,7 @@ function clearfyParams(moduleId, moduleSource) {
 }
 ```
 
-这样，我们就得到了类似这样的有require和exports的代码：
+これで、requireとexportsを持つコードを得ることができました：
 
 ```jsx
 var r = require(12781).Stream;
@@ -134,7 +134,9 @@ module.exports = o;
 
 ### 3. 优化压缩后的语法
 
-JS代码经过压缩后，会产生大量的逗号运算符、短路写法、三元表达式、括号闭包等等，非常阻碍阅读，这里参考了https://github.com/thakkarparth007/copilot-explorer 这个项目所做的一些逆向工作，对语法进行了一系列处理：
+JSコードは圧縮されると、カンマ演算子、ショートサーキット記法、三項演算子、カッコクロージャーなどが大量に生成され、読み取りが非常に妨げられますが、ここでは以下を参考にしました
+https://github.com/thakkarparth007/copilot-explorer
+このプロジェクトが行った逆向きの作業について、文法をいくつかの処理を行いました：
 
 ```jsx
 function prettier(ast) {
@@ -270,7 +272,8 @@ function prettier(ast) {
 
 ### 4. require的模块id取名
 
-由于压缩之后的代码，require依赖只有moduleid，已经失去了原来的文件名称，所以这里我们需要手动映射（当然也可以借助GPT）推断一下不同文件的名称，维护一个map文件，然后在ast里将模块id替换为有语义的模块名：
+圧縮したコードでは、requireによる依存関係にはモジュールIDしかなく、元のファイル名が失われています。
+そのため、ここでは手動でマッピング（もちろんGPTを利用することもできます）を行い、異なるファイルの名前を推測し、マップファイルを保持し、AST内のモジュールIDを意味のあるモジュール名に置き換えます。
 
 ```jsx
 function transformRequire(ast) {
@@ -295,55 +298,54 @@ function transformRequire(ast) {
 }
 ```
 
-至此，我们逆向相关的准备工作就完成了。
+これで、関連する逆アセンブルの準備は完了しました。
 
 ## 入口分析
 
-虽然前面我们已经为逆向做了大量的工作，但实际上，逆向JS代码还是一个体力活，在有限的精力下，我们也只能手动将一些上下文压缩变量进行推断替换，尽可能还原一些核心文件的代码。
+前回、大量の逆向工作を行ったにもかかわらず、実際には逆向きのJSコードは非常に多くの仕事を行うことができるので、限られた精力の下で、我々はいくつかの文脈を手動で圧縮する変数を推測し、いくつかのコアファイルのコードを復元することができるようになりました。
 
-入口可以很轻易找到它的模块id是91238：
+入り口は、モジュールIDは91238であることが非常に容易である。
 
 ![image](https://files.mdnice.com/user/13429/3e853967-0df6-4443-b95c-c7e9594ed381.png)
 
-经过一系列的手动优化操作，我们可以大致还原这个入口文件的原始样貌：
+一連の手動の最適化操作を経て、我々はこのエントリファイルの元の姿を大まかに復元することができます：
 
 ![image](https://files.mdnice.com/user/13429/e9823fac-23da-474c-86ce-296bd0e9cc55.png)
 
-在VSCode的active函数中，copilot做了大量初始化相关的工作，以及将各个模块的示例注册到context中，后续取实例就从context上下文来取。
+VSCodeのactive関数で、copilotは多くの初期化関連の作業を行い、各モジュールのサンプルをコンテキストに登録します。 以降、インスタンスはコンテキストから取得します。
 
-我们的核心还是想探索copilot的代码补全能力，入口文件的细节在这里就不展开了。
+私たちのコアはcopilotのコード補完能力を探求したいと思っていますが、入り口ファイルの詳細についてはここでは展開しません。
 
-## 代码提示入口逻辑
+## コード補完入口ロジック
 
-代码提示逻辑是在`registerGhostText`中注册的：
+コードのヒントロジックは、`registerGhostText`で登録されています：
 
 ![image](https://files.mdnice.com/user/13429/7a5b9151-3050-4daa-a46c-be52ce524450.png)
 
-在vscode中，主要通过`InlineCompletionItemProvider`来实现编辑器中的代码补全能力。
+vscodeでは、主に`InlineCompletionItemProvider`を通じてエディタ内でのコード補完能力を実現している。
 
-整个实现的入口逻辑经过还原后大致如下：
+実装のエントリロジックは、大まかに以下のように復元されます。
 
 ![image](https://files.mdnice.com/user/13429/fad4aa2b-ac0e-4fef-b2f9-881592a8aad6.png)
 
-整体还是比较清晰的，它大致做了以下几件事情：
+全体的には、かなり明確です。大まかに以下のことを行っています。
 
-- 如果用户关闭了`InlineSuggestEnable`、或者document不在处理白名单内，或者用户取消了输入，都会提前return，不进行代码提示。
-- 调用`getGhostText`方法拿到texts，这个大概就是最终会返回给用户的代码提示文本。
-- 调用`completionsFromGhostTextResults`，拿到最终的completions。这个函数比较简单，主要对文本进行了一些格式化的处理，比如处理Tab空格的问题，以及根据光标当前的位置计算出代码提示应当显示在编辑器中的坐标范围。
+- ユーザーが`InlineSuggestEnable`を閉じたり、ドキュメントが処理ホワイトリスト内になく、ユーザーが入力をキャンセルしたりした場合は、すぐにreturnして、コードのヒントを表示しません。
+- `getGhostText`メソッドを呼び出して、textsを取得します。これは、ユーザーに返されるコードのヒントテキストです。
+- `completionsFromGhostTextResults`を呼び出して、最終的なcompletionsを取得します。この関数はかなり簡単で、テキストにいくつかのフォーマット処理を行っています。たとえば、タブスペースの問題を処理し、カーソルの現在の位置に基づいて、コードのヒントがエディタに表示される座標範囲を計算します。
 
-## getGhostText核心逻辑
+## getGhostText核心ロジック
 
-getGhostText是获取提示代码的核心方法，整体代码较多，我们将其拆分一下：
+getGhostTextは、ヒントコードを取得する核心メソッドであり、コード全体が多いため、分割してみましょう：
 
-### 1. 提取Prompt
+### 1. プロンプトを抽出する
 
 ```jsx
 const prompt = await extractprompt.extractPrompt(ctx, document, position);
 ```
 
-提取prompt是一个比较复杂的操作，接下来我们单独拆一小节详细分析。
-
-### 2. 边界判断
+promptを抽出するのはちょっと複雑な操作なので、次の小節で詳細に分析します。
+### 2. 境界判断
 
 ```jsx
 if ("copilotNotAvailable" === prompt.type) {
@@ -372,15 +374,15 @@ if ("copilotNotAvailable" === prompt.type) {
   }
 ```
 
-这里的边界范围主要是三种情况：
+ここでの境界範囲は主に三つの場合がある：
 
-- 包含在.copilotignore里的文件
-- 上下文太少了
-- 用户已经取消了
+- .copilotignoreに含まれるファイル
+- コンテキストが少なすぎる
+- ユーザーがキャンセルした
 
-### 3. 二级缓存
+### 3. 2段階キャッシュ
 
-在copilot内部做了两层缓存处理，第一层缓存是保存了上一次的`prefix`和`suffix`：
+copilot内部で2つのキャッシュ処理を行っています。 1段階キャッシュは、前回の`prefix`と`suffix`を保存します：
 
 ```jsx
 function updateGlobalCacheKey(prefix, suffix, promptKey) {
@@ -390,15 +392,15 @@ function updateGlobalCacheKey(prefix, suffix, promptKey) {
 }
 ```
 
-这里的`promptKey`是根据`prefix`和`suffix`的内容计算得到。在copilot向后台发起请求前，如果判断这次请求的prefix和suffix还是和之前的一样，则会读取缓存的内容：
+ここでの`promptKey`は、`prefix`と`suffix`の内容に基づいて計算されます。copilotがリクエストをバックエンドに送信する前に、このリクエストのprefixとsuffixが以前と同じであると判断した場合、キャッシュされた内容が読み取られます。
 
 ![image](https://files.mdnice.com/user/13429/91ea686c-7696-452f-a18b-927b96243cac.png)
 
-紧接着，如果上一层的缓存没有命中，copilot还会计算二级缓存，会计算当前的prompt在不在缓存范围内：
+続いて、一次キャッシュがミスした場合、copilotは二次キャッシュを計算し、現在のpromptがキャッシュ範囲にあるかどうかを計算します。
 
 ![image](https://files.mdnice.com/user/13429/d7ff3141-d12c-4b10-89f1-c217cbe32681.png)
 
-在这里，copilot采取的缓存是LRU缓存策略，prompt默认会缓存100条：
+ここで、copilotが採用しているキャッシュはLRUキャッシュポリシーであり、promptはデフォルトで100件キャッシュされます。
 
 ```jsx
 exports.completionCache = new s.LRUCacheMap(100);
@@ -412,14 +414,14 @@ exports.keyForPrompt = function (e) {
 };
 ```
 
-### 4. 真正发起请求
+### 4. 真正発起要求
 
-到了真正到向后台发送prompt请求的时候，copilot还是做了两件比较细致的事情：
+本当に後ろ向きにprompt要求を送る時に、copilotはまだ細かいことを二つしている：
 
-1. 设置`Debounce`时延
-2. 判断`contexualFilterScore`是否达到阈值
+1. `Debounce`遅延を設定する
+2. `contexualFilterScore`の閾値に達するかどうかを判断する
 
-首先，为了避免频繁向后台发送请求，copilot做了debounce，要知道模型计算是十分消耗算力的，因此在这个场景下，必须要做debounce。copilot的这个debounce也不是一般的，让我们看看它的实现细节：
+まず、頻繁に後ろ向きに要求を送るのを避けるために、copilotはdebounceをして、モデルの計算がとても算力を消費するので、このシーンでは、debounceをする必要がある。copilotのこのdebounceも一般的ではない、私たちは実装の詳細を見てみましょう：
 
 ```jsx
 exports.getDebounceLimit = async function (e, t) {
@@ -434,33 +436,33 @@ exports.getDebounceLimit = async function (e, t) {
 };
 ```
 
-copilot有一个预测开关，如果这个预测开关打开，会根据当前的内容相关性评分预测当前的debounce时延，这个处理就比较高级了。当然在开关没打开的情况下默认值为75ms。
+copilotには予測スイッチがあり、現在の内容の関連性スコアに基づいて現在のdebounce遅延を予測します。この処理はかなり高度なものです。もちろん、スイッチがオンになっていない場合は、デフォルト値は75msです。
 
-其次就是`contexualFilterScore` 了，这个值代表的是上下文的评分，copilot会记录之前几次上下文有没有采纳的结果，貌似是通过一个简单的线性回归来预测当前的上下文被采纳的可能性，如果小于一定的阈值，则不会再给用户进行提示，优化用户体验。
+次に、`contexualFilterScore`これは、コンテキストのスコアを表します。copilotは、以前のいくつかのコンテキストが採用されているかどうかを記録し、現在のコンテキストが採用される可能性を単純な線形回帰を使用して予測します。一定のしきい値より小さい場合、ユーザーにヒントを表示しないようにすると、ユーザー体験が向上します。
 
 ![image](https://files.mdnice.com/user/13429/c175e519-bb25-4781-a9a3-3ca46628e407.png)
 
-当前版本的阈值应该是35%。这个`contextualFilterEnable`开关默认是打开的。
+現在のバージョンのしきい値は35％である必要があります。この`contextualFilterEnable`スイッチはデフォルトでオンになっています。
 
-最后，就是向后台真正发起请求了：
+最後に、バックエンドにリクエストを送信する
 
 ![image](https://files.mdnice.com/user/13429/18128a56-2953-4871-ac50-fa4367b24c5f.png)
 
-### 5. 流程总结
+### 1. 概要
 
-画个图总结一下copilot向后台发起请求之前做的事情：
+この記事では、コードを記述することなく、Amazon API GatewayとAWS Lambdaを使用して、RESTful APIを構築する方法を紹介します。
 
 ![image](https://files.mdnice.com/user/13429/7653b58f-20d4-405e-bd88-744a6c622999.png)
 
-## Extract核心逻辑
+## Extract核心ロジック
 
-Extract首层逻辑其实并不复杂，最终返回了prompt对象：
+Extractの最初のレイヤーのロジックは、実際には複雑ではありません。最終的にはpromptオブジェクトを返します。
 
 ![image](https://files.mdnice.com/user/13429/6913fceb-3f73-4381-a906-1d6ccde0a896.png)
 
-上图中用红框标出的字段来源于配置，其他的字段来自于`getPrompt`方法的返回，getPrompt是获取prompt的核心逻辑，这块我们接下来单独展开讨论，先来看看配置的问题。
+上の図の赤い枠で囲まれたフィールドは設定から来ていますが、その他のフィールドは`getPrompt`メソッドの返り値から来ています。getPromptはpromptを取得するコアロジックであり、ここではそれを詳しく見ていきます。まずは設定の問題から見てみましょう。
 
-在copilot（VSCode）体系中，有很多配置是对接了微软的AB实验平台的，可以在文件中找到这样的模块：
+copilot（VSCode）システムでは、MicrosoftのAB実験プラットフォームと統合された多くの設定があります。ファイルでこのようなモジュールを見つけることができます。
 
 ```jsx
 async fetchExperiments(e, t) {
@@ -485,56 +487,56 @@ async fetchExperiments(e, t) {
     }
 ```
 
-这个就是拉取了ab实验的平台，很多特性开关都是通过配置下发，copilot的相关配置也不例外。
+これはab実験のプラットフォームを引っ張ってきたもので、多くの特性のスイッチは設定を通して出す、copilotの関連設定も例外ではない。
 
-这些配置在平台没有指定的时候，都是以它的默认值。
+これらの設定はプラットフォームで指定されない時、デフォルト値である。
 
-经过我实际抓包，发现我的Copilot插件配置好像没有经过配置平台单独指定，因此整个字段应该取的默认值：
+私は実際にパケットを取った後、Copilotプラグインの設定が設定プラットフォームを通して指定されていないように見えたので、全体のフィールドはデフォルト値で取られるべきです。
 
-- `suffixPercent`，默认值为15.
-- `fimSuffixLengthThreshold`，默认值为0
-- `maxPromptCompletionTokens`，默认值为2048
-- `neighboringTabsOption`，默认值为eager
-- `neighboringSnippetTypes`，默认值为NeighboringSnippets
-- `numberOfSnippets`，默认值为4
-- `snippetPercent`，默认值为0
-- `suffixStartMode`，默认值为CursorTrimStart
-- `tokenizerName，` 默认值为cushman002
-- `indentationMinLength`，默认值为undefined
-- `indentationMaxLength`，默认值为undefined
-- `cursorContextFix`，默认值为false
+- `suffixPercent`，デフォルト値は15。
+- `fimSuffixLengthThreshold`，デフォルト値は0
+- `maxPromptCompletionTokens`，デフォルト値は2048
+- `neighboringTabsOption`，デフォルト値はeager
+- `neighboringSnippetTypes`，デフォルト値はNeighboringSnippets
+- `numberOfSnippets`，デフォルト値は4
+- `snippetPercent`，デフォルト値は0
+- `suffixStartMode`，デフォルト値はCursorTrimStart
+- `tokenizerName，` デフォルト値はcushman002
+- `indentationMinLength`，デフォルト値はundefined
+- `indentationMaxLength`，デフォルト値はundefined
+- `cursorContextFix`，デフォルト値はfalse
 
-这些会作为Prompt的基础配置字段传给getPrompt方法。
+これらはPromptの基本設定フィールドとしてgetPromptメソッドに渡されます。
 
-## getPrompt核心逻辑
+## getPromptの核心ロジック
 
-### 一些额外的配置字段
+### いくつかの追加設定フィールド
 
-在getPrompt逻辑里，首先扩充了一系列配置字段：
+getPromptロジックで、まずいくつかの追加設定フィールドを拡張しています：
 
-- `languageMarker`，默认值为Top
-- `pathMarker`，默认值为Top
-- `localImportContext`，默认值为Declarations
-- `snippetPosition`，默认值为TopOfText
-- `lineEnding`，默认值为ConvertToUnix
-- `suffixMatchThreshold`，默认值为0
-- `suffixMatchCriteria`，默认值为`Levenshtein`
-- `cursorSnippetsPickingStrategy`，默认值为`CursorJaccard`
+- `languageMarker`、デフォルト値はTop
+- `pathMarker`、デフォルト値はTop
+- `localImportContext`、デフォルト値はDeclarations
+- `snippetPosition`、デフォルト値はTopOfText
+- `lineEnding`、デフォルト値はConvertToUnix
+- `suffixMatchThreshold`、デフォルト値は0
+- `suffixMatchCriteria`、デフォルト値は`Levenshtein`
+- `cursorSnippetsPickingStrategy`、デフォルト値は`CursorJaccard`
 
-### prompt的组成
+### promptの構成
 
-在Copilot中，prompt是由多种类型组合而成，可以在PromptElementKind中找到：
+Copilotでは、promptは複数のタイプで構成されています。PromptElementKindで確認できます。
 
-- `BeforeCursor`，是光标前的内容
-- `AfterCursor`，是光标后的内容
-- `SimilarFile`，与当前文件相似度较高的内容
-- `ImportedFile`：import依赖
-- `LanguageMarkder`，文件开头的标记语法
-- `PathMarker`，文件的路径信息
+- `BeforeCursor`、カーソルの前の内容
+- `AfterCursor`、カーソルの後の内容
+- `SimilarFile`、現在のファイルに似ている内容
+- `ImportedFile`：import依存
+- `LanguageMarkder`、ファイルの先頭のマークアップ
+- `PathMarker`、ファイルのパス情報
 
-### PromptElement的优先级
+### PromptElementの優先順位
 
-Copilot实现了一个优先级的辅助类，用来设置不同类型的Element优先级：
+Copilotは、優先順位を設定するために、優先順位の補助クラスを実装しました。
 
 ```jsx
 class Priorities {
@@ -563,9 +565,7 @@ class Priorities {
 }
 ```
 
-可以看到justAbove和justBelow，就是生成一个比传入优先级略高或略低的优先级，保证这个优先级在目前的情况下只比传入的优先级高或低一点。
-
-在Copilot中，不同类型的优先级是这样产生的：
+Copilotの中で、異なるタイプの優先度の生成方法は以下のようになっています：
 
 ```jsx
 const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
@@ -580,16 +580,16 @@ const beforeCursorPriority = priorities.justBelow(p.Priorities.TOP);
   const highSnippetPriority = priorities.justAbove(beforeCursorPriority);
 ```
 
-这里可以简单推断一下：
+ここで簡単に推測することができる：
 
-- `beforeCursorPriority`，为0.5
-- `languageMarkerPriority`，为0.25
-- `pathMarkderPriority`，为0.375
-- `importedFilePriority`，为0.4375
-- `lowSnippetPriority`，为0.40625
-- `highSnippetPriority`，为0.75
+- `beforeCursorPriority`，0.5
+- `languageMarkerPriority`，0.25
+- `pathMarkderPriority`，0.375
+- `importedFilePriority`，0.4375
+- `lowSnippetPriority`，0.40625
+- `highSnippetPriority`，0.75
 
-所以在默认的场景下，这几种类型的优先级排序为：`highSnippetPriority` > `beforeCursorPriority` > `importedFilePriority` > `lowSnippetPriority` > `pathMarkderPriority` > `languageMarkerPriority`
+だから、デフォルトのシーンで、これらのタイプの優先順位は：`highSnippetPriority` > `beforeCursorPriority` > `importedFilePriority` > `lowSnippetPriority` > `pathMarkderPriority` > `languageMarkerPriority`
 
 ### PromptElement主要内容
 
